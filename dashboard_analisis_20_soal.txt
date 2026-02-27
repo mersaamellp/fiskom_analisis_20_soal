@@ -1,0 +1,146 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+# ==========================================================
+# KONFIGURASI HALAMAN
+# ==========================================================
+st.set_page_config(page_title="Dashboard Analisis 20 Soal", layout="wide")
+st.title("📊 DASHBOARD ANALISIS 20 SOAL")
+st.subheader("Tugas Mata Kuliah Fisika Komputasi")
+
+# ==========================================================
+# LOAD DATA
+# ==========================================================
+df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
+
+st.success(f"✅ Data siap! {df.shape[0]} responden, {df.shape[1]} soal")
+
+if st.checkbox("📋 LIHAT DATA (50 Responden x 20 Soal)"):
+    st.dataframe(df)
+
+# ==========================================================
+# 1️⃣ STATISTIK DESKRIPTIF
+# ==========================================================
+st.header("1️⃣ STATISTIK DESKRIPTIF")
+
+desc = df.describe().T
+st.subheader("📊 Tabel Statistik")
+st.dataframe(desc)
+
+st.subheader("📈 Grafik Rata-rata")
+
+mean_scores = df.mean()
+
+fig1, ax1 = plt.subplots(figsize=(10,4))
+ax1.bar(df.columns, mean_scores)
+ax1.set_ylabel("Rata-rata")
+ax1.set_xticklabels(df.columns, rotation=45)
+st.pyplot(fig1)
+
+# ==========================================================
+# 2️⃣ ANALISIS PER SOAL
+# ==========================================================
+st.header("2️⃣ ANALISIS PER SOAL")
+
+selected_soal = st.selectbox("Pilih Soal:", df.columns)
+
+data_soal = df[selected_soal]
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write("Distribusi Skor")
+    fig2, ax2 = plt.subplots()
+    ax2.hist(data_soal, bins=4)
+    st.pyplot(fig2)
+
+with col2:
+    st.write("Statistik")
+    st.write(f"Rata-rata: {data_soal.mean():.2f}")
+    st.write(f"Median: {data_soal.median():.2f}")
+    st.write(f"Std Deviasi: {data_soal.std():.2f}")
+    st.write(f"Minimum: {data_soal.min()}")
+    st.write(f"Maximum: {data_soal.max()}")
+
+# ==========================================================
+# 3️⃣ SOAL TERBAIK & TERBURUK
+# ==========================================================
+st.header("3️⃣ SOAL TERBAIK & TERBURUK")
+
+top5 = mean_scores.sort_values(ascending=False).head(5)
+bottom5 = mean_scores.sort_values().head(5)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("🏆 5 Soal Terbaik")
+    st.dataframe(top5)
+
+with col2:
+    st.subheader("📉 5 Soal Terburuk")
+    st.dataframe(bottom5)
+
+# ==========================================================
+# 4️⃣ ANALISIS GAP
+# ==========================================================
+st.header("4️⃣ ANALISIS GAP")
+
+max_score = df.max().max()
+gap = max_score - mean_scores
+prioritas = gap.idxmax()
+
+fig3, ax3 = plt.subplots(figsize=(10,4))
+ax3.bar(df.columns, gap)
+ax3.set_ylabel("Nilai GAP")
+ax3.set_xticklabels(df.columns, rotation=45)
+st.pyplot(fig3)
+
+st.warning(f"🎯 Fokus Perbaikan: {prioritas}")
+
+# ==========================================================
+# 5️⃣ SEGMENTASI SISWA
+# ==========================================================
+st.header("5️⃣ SEGMENTASI SISWA")
+
+jumlah_cluster = st.slider("Jumlah Kelompok:", 2, 5, 3)
+
+scaler = StandardScaler()
+scaled = scaler.fit_transform(df)
+
+kmeans = KMeans(n_clusters=jumlah_cluster, random_state=42, n_init=10)
+df["Cluster"] = kmeans.fit_predict(scaled)
+
+cluster_profile = df.groupby("Cluster").mean()
+
+st.subheader("📊 Profil per Kelompok")
+st.dataframe(cluster_profile)
+
+st.subheader("📈 Distribusi Kelompok")
+fig4, ax4 = plt.subplots()
+df["Cluster"].value_counts().plot(kind="bar", ax=ax4)
+st.pyplot(fig4)
+
+# ==========================================================
+# 6️⃣ KESIMPULAN OTOMATIS
+# ==========================================================
+st.header("6️⃣ KESIMPULAN")
+
+soal_terbaik = mean_scores.idxmax()
+soal_terburuk = mean_scores.idxmin()
+rata_total = mean_scores.mean()
+
+st.success(f"""
+Soal Terbaik: {soal_terbaik} ({mean_scores.max():.2f})  
+Soal Terburuk: {soal_terburuk} ({mean_scores.min():.2f})  
+Rata-rata Total: {rata_total:.2f}
+""")
+
+st.write("📋 REKOMENDASI:")
+for soal, nilai in bottom5.items():
+    st.write(f"- {soal} (rata-rata: {nilai:.2f}) → Perlu ditingkatkan")
+
+st.success("✅ ANALISIS SELESAI!")
